@@ -7,7 +7,7 @@ void main() {
         appBar: AppBar(
             title: const Text(
           "Cachaça Hub",
-           style: GoogleFonts.getFont('Lato'),
+           style: GoogleFonts.roboto(),
         )),
         body: const Center(
             child: Column(children: [
