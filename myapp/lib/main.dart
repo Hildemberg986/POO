@@ -1,84 +1,45 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'widgets/custom_app_bar.dart';
+import 'widgets/custom_drawer.dart';
 
-class CounterDisplay extends StatelessWidget {
-  const CounterDisplay({required this.count, super.key});
+void main() => runApp(const MenuApp());
 
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text('Count: $count');
-  }
-}
-
-class CounterIncrementor extends StatelessWidget {
-  const CounterIncrementor({required this.onPressed, super.key});
-
-  final VoidCallback onPressed;
+class MenuApp extends StatefulWidget {
+  const MenuApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      child: const Text('Increment'),
-    );
-  }
+  // ignore: library_private_types_in_public_api
+  _MenuAppState createState() => _MenuAppState();
 }
 
-class Counter extends StatefulWidget {
-  const Counter({super.key});
+class _MenuAppState extends State<MenuApp> {
+  // Variável para armazenar a tela atual
+  Widget _selectedScreen = Center(
+      child: Image.asset(
+    'assets/icons/icon_transparente.png',
+    width: 150,
+  ));
 
-  @override
-  State<Counter> createState() => _CounterState();
-}
-
-class _CounterState extends State<Counter> {
-  int _counter = 0;
-
-  void _increment() {
+  // Função para atualizar a tela exibida
+  void _updateScreen(Widget screen) {
     setState(() {
-      ++_counter;
+      _selectedScreen = screen;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        CounterIncrementor(onPressed: _increment),
-        const SizedBox(width: 16),
-        CounterDisplay(count: _counter),
-      ],
-    );
-  }
-}
-
-void main() {
-  // Configurar a cor da barra de status para preta
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.black, // Cor da barra de status
-    statusBarIconBrightness: Brightness.light, // Ícones brancos
-  ));
-
-  runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false, // Remover o banner de debug
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
-        appBar: AppBar( // Adicionando a AppBar
-          title: const Text(
-            'Contador',
-            style: TextStyle(color: Colors.white), // Definindo a cor do texto como branco
-          ),
-          backgroundColor: const Color.fromARGB(255, 117, 0, 226),
-        ),
-        body: const SafeArea( // SafeArea para evitar sobreposição
-          child: Center(
-            child: Counter(),
-          ),
+        appBar: const CustomAppBar(), // AppBar personalizada
+        body: _selectedScreen, // Exibe a tela selecionada
+        backgroundColor: const Color.fromRGBO(180, 187, 228, 1),
+        drawer: CustomDrawer(
+          onSelectScreen:
+              _updateScreen, // Passa a função de atualização de tela
         ),
       ),
-    ),
-  );
+    );
+  }
 }
