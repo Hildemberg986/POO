@@ -15,6 +15,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       backgroundColor: const Color.fromRGBO(38, 42, 79, 1),
       toolbarHeight: 100,
+      leadingWidth: 100,
       iconTheme: const IconThemeData(
         color: Colors.white, // Cor do ícone do menu
         size: 40,
