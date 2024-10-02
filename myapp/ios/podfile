@@ -1,8 +1,7 @@
-platform :ios, '12.0'
-
-# Descomente se você tiver Swift ou Objective-C code em seu projeto.
-use_frameworks!
-
 target 'Runner' do
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-end
+    use_frameworks!
+    use_modular_headers!
+  
+    flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
+  end
+  
