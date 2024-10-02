@@ -1,0 +1,8 @@
+platform :ios, '12.0' # ou a versão desejada
+
+target 'Runner' do
+  use_frameworks! # Se você estiver usando frameworks
+
+  # Adicione suas dependências aqui
+  # Exemplo: pod 'Firebase/Core'
+end
