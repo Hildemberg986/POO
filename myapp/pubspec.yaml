@@ -99,4 +99,5 @@ flutter_icons:
   android: true
   ios: true
   adaptive_icon_background: "#262A4F"  # Cor de fundo desejada
-  image_path: "assets/icons/lOGO-ENCRIPTADOS.png"  # Aponte para o seu ícone
+  adaptive_icon_foreground: "assets/icons/iconeApp.png"
+  image_path: "assets/icons/iconeApp.png"  # Aponte para o seu ícone

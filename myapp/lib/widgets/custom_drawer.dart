@@ -16,23 +16,25 @@ class CustomDrawer extends StatelessWidget {
         children: <Widget>[
           Container(
             color: const Color.fromRGBO(38, 42, 79, 1),
-            height: 100,
+            height: 150,
             child: const Center(
-              child: Text(
-                'Menu',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 35,
-                ),
+                child: Text(
+              'Menu',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 35,
+                fontFamily: 'Raleway', 
+                fontWeight: FontWeight.bold,
               ),
-            ),
+            )),
           ),
           ListTile(
             leading: const Icon(Icons.newspaper),
             title: const Text('Noticias'),
             onTap: () {
               Navigator.pop(context); // Fecha o drawer
-              onSelectScreen(const NoticiasScreen()); // Atualiza o conteúdo da tela
+              onSelectScreen(
+                  const NoticiasScreen()); // Atualiza o conteúdo da tela
             },
           ),
           ListTile(
@@ -40,7 +42,8 @@ class CustomDrawer extends StatelessWidget {
             title: const Text('Eventos'),
             onTap: () {
               Navigator.pop(context); // Fecha o drawer
-              onSelectScreen(const EventosScreen()); // Atualiza o conteúdo da tela
+              onSelectScreen(
+                  const EventosScreen()); // Atualiza o conteúdo da tela
             },
           ),
           ListTile(
@@ -48,7 +51,8 @@ class CustomDrawer extends StatelessWidget {
             title: const Text('Jogos'),
             onTap: () {
               Navigator.pop(context); // Fecha o drawer
-              onSelectScreen(const JogosScreen()); // Atualiza o conteúdo da tela
+              onSelectScreen(
+                  const JogosScreen()); // Atualiza o conteúdo da tela
             },
           ),
         ],
