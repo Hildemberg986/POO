@@ -1,7 +1,7 @@
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
-
-  # flutter_application_path = File.join('..', '..')  # Caminho relativo correto ao seu projeto Flutter
+  system('pwd')
+  system('ls')
   load File.join('.flutter-plugins-dependencies')  
 end
