@@ -2,6 +2,6 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
-  flutter_application_path = File.join('flutter')  # Caminho relativo a partir de onde o Podfile está localizado
-  load File.join(flutter_application_path, 'flutter_export_ios_plugins.rb')
+  flutter_application_path = File.join('..', '..')  # Caminho relativo correto ao seu projeto Flutter
+  load File.join(flutter_application_path, '.flutter-plugins-dependencies.rb')  
 end
