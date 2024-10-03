@@ -1,0 +1,15 @@
+workflows:
+  ios-workflow:
+    name: iOS Workflow
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Get Flutter dependencies
+        script: flutter pub get
+      - name: Update CocoaPods
+        script: |
+          pod repo update
+          pod install
+    artifacts:
+      - build/ios/ipa
