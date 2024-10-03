@@ -3,5 +3,6 @@ target 'Runner' do
   use_modular_headers!
   system('pwd')
   system('ls')
-  load File.join('.flutter-plugins-dependencies')  
+  load File.join('../.flutter-plugins-dependencies')  
+  system('ls')
 end
