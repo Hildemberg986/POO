@@ -9,6 +9,7 @@ workflows:
         script: flutter pub get
       - name: Update CocoaPods
         script: |
+          sudo gem install cocoapods
           pod repo update
           pod install
     artifacts:
