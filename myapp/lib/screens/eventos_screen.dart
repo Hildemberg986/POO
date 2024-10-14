@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'dart:math';
 
 class EventosScreen extends StatefulWidget {
   const EventosScreen({super.key});
@@ -9,106 +11,204 @@ class EventosScreen extends StatefulWidget {
 }
 
 class _EventosScreenState extends State<EventosScreen> {
-  late DateTime _diaFocado;
+  final DateTime _diaFocado = DateTime.now();
   DateTime? _diaSelecionado;
+  final Map<DateTime, List<EventoModel>> _eventos = {};
+  final Random _random = Random();
 
   @override
   void initState() {
     super.initState();
-    _diaFocado = DateTime.now();
     _diaSelecionado = _diaFocado;
   }
 
-  void _onDiaSelecionado(DateTime diaSelecionado, DateTime diaFocado) {
+  List<EventoModel> _carregarEventosPorDia(DateTime dia) {
+    return _eventos[dia] ?? [];
+  }
+
+  void _onDiaSelecionado(DateTime diaSelecionado) {
     setState(() {
       _diaSelecionado = diaSelecionado;
-      _diaFocado = diaFocado;
     });
   }
 
-  void _chooseYear() async {
-    final selectedYear = await showDialog<int>(
-      context: context,
-      builder: (context) {
-        int? year;
-        return AlertDialog(
-          title: const Text('Escolha o Ano'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: List.generate(
-                DateTime.utc(2040, 12, 31).year - DateTime.now().year + 1,
-                (index) {
-                  final currentYear = DateTime.now().year + index;
-                  return ListTile(
-                    title: Text('$currentYear'),
-                    onTap: () {
-                      year = currentYear;
-                      Navigator.of(context).pop(year);
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      },
+  void _adicionarEvento(DateTime dataInicio, DateTime dataFim, String nome,
+      String descricao, TimeOfDay? horaInicio, TimeOfDay? horaFim) {
+    if (dataInicio.isAfter(dataFim)) return;
+
+    final evento = EventoModel(
+      nome: nome,
+      descricao: descricao,
+      dataInicio: dataInicio,
+      dataFim: dataFim,
+      cor: Color.fromRGBO(
+          _random.nextInt(256), _random.nextInt(256), _random.nextInt(256), 1),
+      horaInicio: horaInicio,
+      horaFim: horaFim,
     );
 
-    if (selectedYear != null) {
-      setState(() {
-        _diaFocado = DateTime(selectedYear, _diaFocado.month, _diaFocado.day);
-      });
-    }
+    setState(() {
+      for (var dia = dataInicio;
+          !dia.isAfter(dataFim);
+          dia = dia.add(const Duration(days: 1))) {
+        _eventos[dia] = (_eventos[dia] ?? [])..add(evento);
+      }
+    });
   }
 
-  void _chooseMonth() async {
-    final selectedMonth = await showDialog<int>(
+  Future<void> _mostrarModalAdicionarEvento() async {
+    DateTime? dataInicio = _diaSelecionado;
+    DateTime? dataFim = _diaSelecionado;
+    TimeOfDay? horaInicio;
+    TimeOfDay? horaFim;
+    final TextEditingController nomeController = TextEditingController();
+    final TextEditingController descricaoController = TextEditingController();
+
+    await showDialog(
       context: context,
-      builder: (context) {
-        int? month;
+      builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Escolha o Mês'),
+          title: const Text('Adicionar Evento'),
           content: SingleChildScrollView(
-            child: ListBody(
-              children: List.generate(12, (index) {
-                final currentMonth = index + 1;
-                return ListTile(
-                  title: Text('${_getMonthName(currentMonth)}'),
-                  onTap: () {
-                    month = currentMonth;
-                    Navigator.of(context).pop(month);
-                  },
+            child: StatefulBuilder(
+              builder: (BuildContext context, StateSetter setState) {
+                return Column(
+                  children: [
+                    TextField(
+                      controller: nomeController,
+                      decoration:
+                          const InputDecoration(labelText: 'Nome do Evento'),
+                    ),
+                    TextField(
+                      controller: descricaoController,
+                      decoration: const InputDecoration(
+                          labelText: 'Descrição do Evento'),
+                    ),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      title: const Text('Data Início'),
+                      subtitle: Text('${dataInicio!.toLocal()}'.split(' ')[0]),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final dataSelecionada = await showDatePicker(
+                          context: context,
+                          initialDate: dataInicio!,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (dataSelecionada != null) {
+                          setState(() {
+                            dataInicio = dataSelecionada;
+                          });
+                        }
+                      },
+                    ),
+                    ListTile(
+                      title: const Text('Data Fim'),
+                      subtitle: Text('${dataFim!.toLocal()}'.split(' ')[0]),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final dataSelecionada = await showDatePicker(
+                          context: context,
+                          initialDate: dataFim!,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (dataSelecionada != null) {
+                          setState(() {
+                            dataFim = dataSelecionada;
+                          });
+                        }
+                      },
+                    ),
+                    ListTile(
+                      title: const Text('Hora Início'),
+                      subtitle: Text(
+                        horaInicio != null
+                            ? '${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}'
+                            : 'Não definido',
+                      ),
+                      trailing: const Icon(Icons.access_time),
+                      onTap: () async {
+                        final horaSelecionada = await showTimePicker(
+                          context: context,
+                          initialTime: horaInicio ?? TimeOfDay.now(),
+                          builder: (BuildContext context, Widget? child) {
+                            return MediaQuery(
+                              data: MediaQuery.of(context)
+                                  .copyWith(alwaysUse24HourFormat: true),
+                              child: child ?? Container(),
+                            );
+                          },
+                        );
+                        if (horaSelecionada != null) {
+                          setState(() {
+                            horaInicio = horaSelecionada;
+                          });
+                        }
+                      },
+                    ),
+                    ListTile(
+                      title: const Text('Hora Fim'),
+                      subtitle: Text(
+                        horaFim != null
+                            ? '${horaFim!.hour.toString().padLeft(2, '0')}:${horaFim!.minute.toString().padLeft(2, '0')}'
+                            : 'Não definido',
+                      ),
+                      trailing: const Icon(Icons.access_time),
+                      onTap: () async {
+                        final horaSelecionada = await showTimePicker(
+                          context: context,
+                          initialTime: horaFim ?? TimeOfDay.now(),
+                          builder: (BuildContext context, Widget? child) {
+                            return MediaQuery(
+                              data: MediaQuery.of(context)
+                                  .copyWith(alwaysUse24HourFormat: true),
+                              child: child ?? Container(),
+                            );
+                          },
+                        );
+                        if (horaSelecionada != null) {
+                          setState(() {
+                            horaFim = horaSelecionada;
+                          });
+                        }
+                      },
+                    )
+                  ],
                 );
-              }),
+              },
             ),
           ),
+          actions: [
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Salvar'),
+              onPressed: () {
+                if (dataInicio != null && dataFim != null) {
+                  _adicionarEvento(
+                    dataInicio!,
+                    dataFim!,
+                    nomeController.text,
+                    descricaoController.text,
+                    horaInicio,
+                    horaFim,
+                  );
+                  nomeController.clear(); // Limpar o campo após salvar
+                  descricaoController.clear(); // Limpar o campo após salvar
+                }
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
         );
       },
     );
-
-    if (selectedMonth != null) {
-      setState(() {
-        _diaFocado = DateTime(_diaFocado.year, selectedMonth, _diaFocado.day);
-      });
-    }
-  }
-
-  String _getMonthName(int month) {
-    const monthNames = [
-      'Janeiro',
-      'Fevereiro',
-      'Março',
-      'Abril',
-      'Maio',
-      'Junho',
-      'Julho',
-      'Agosto',
-      'Setembro',
-      'Outubro',
-      'Novembro',
-      'Dezembro'
-    ];
-    return monthNames[month - 1];
   }
 
   @override
@@ -116,84 +216,116 @@ class _EventosScreenState extends State<EventosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Eventos'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _mostrarModalAdicionarEvento,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Cabeçalho personalizado para o calendário
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: () {
-                    setState(() {
-                      _diaFocado = DateTime(_diaFocado.year, _diaFocado.month - 1, 1);
-                    });
-                  },
+            padding: const EdgeInsets.all(
+                16.0), // Ajuste o valor conforme necessário
+            child: SfCalendar(
+              view: CalendarView.month,
+              maxDate: DateTime(2100),
+              minDate: DateTime(2023),
+              headerStyle: const CalendarHeaderStyle(
+                textAlign: TextAlign.center,
+                textStyle: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
-                Column(
-                  children: [
-                    Text(
-                      _getMonthName(_diaFocado.month),
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${_diaFocado.year}',
-                      style: const TextStyle(fontSize: 18),
-                    ),
-                  ],
+              ),
+              onTap: (CalendarTapDetails details) {
+                if (details.targetElement == CalendarElement.calendarCell) {
+                  _onDiaSelecionado(details.date!);
+                }
+              },
+              monthViewSettings: const MonthViewSettings(
+                appointmentDisplayMode: MonthAppointmentDisplayMode.appointment,
+                monthCellStyle: MonthCellStyle(
+                  backgroundColor: Colors.transparent,
+                  textStyle: TextStyle(
+                    color: Colors.black,
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () {
-                    setState(() {
-                      _diaFocado = DateTime(_diaFocado.year, _diaFocado.month + 1, 1);
-                    });
-                  },
-                ),
-              ],
+              ),
+              dataSource: EventoDataSource(
+                  _eventos.values.expand((eventList) => eventList).toList()),
             ),
           ),
-          TableCalendar(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2100, 12, 31),
-            focusedDay: _diaFocado,
-            selectedDayPredicate: (day) => isSameDay(_diaSelecionado, day),
-            onDaySelected: _onDiaSelecionado,
-            calendarStyle: const CalendarStyle(
-              todayDecoration: BoxDecoration(
-                color: Color.fromRGBO(0, 0, 0, 0.1),
-                shape: BoxShape.circle,
-              ),
-              selectedDecoration: BoxDecoration(
-                color: Colors.orange,
-                shape: BoxShape.circle,
-              ),
+          Expanded(
+            child: ListView(
+              children: _carregarEventosPorDia(_diaSelecionado!)
+                  .map(
+                    (evento) => ListTile(
+                      title: Text(evento.nome),
+                      subtitle: Text(
+                        '${evento.descricao}\n'
+                        'Início: ${evento.horaInicio != null ? '${DateFormat('dd/MM/yyyy').format(evento.dataInicio)} ${evento.horaInicio!.hour.toString().padLeft(2, '0')}:${evento.horaInicio!.minute.toString().padLeft(2, '0')}' : 'Dia Todo'} - '
+                        'Fim: ${evento.horaFim != null ? '${DateFormat('dd/MM/yyyy').format(evento.dataFim)} ${evento.horaFim!.hour.toString().padLeft(2, '0')}:${evento.horaFim!.minute.toString().padLeft(2, '0')}' : 'Dia Todo'}',
+                      ),
+                      tileColor: evento.cor.withOpacity(0.3),
+                    ),
+                  )
+                  .toList(),
             ),
-            locale: 'pt_BR',
-            availableCalendarFormats: const {
-              CalendarFormat.month: 'Mês',
-            },
-          ),
-          // Botões para selecionar o mês e o ano
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: _chooseMonth,
-                child: const Text('Escolher Mês'),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton(
-                onPressed: _chooseYear,
-                child: const Text('Escolher Ano'),
-              ),
-            ],
           ),
         ],
       ),
     );
+  }
+}
+
+class EventoModel {
+  final String nome;
+  final String descricao;
+  final DateTime dataInicio;
+  final DateTime dataFim;
+  final Color cor;
+  final TimeOfDay? horaInicio;
+  final TimeOfDay? horaFim;
+
+  EventoModel({
+    required this.nome,
+    required this.descricao,
+    required this.dataInicio,
+    required this.dataFim,
+    required this.cor,
+    this.horaInicio,
+    this.horaFim,
+  });
+}
+
+class EventoDataSource extends CalendarDataSource {
+  EventoDataSource(List<EventoModel> source) {
+    appointments = source;
+  }
+
+  @override
+  DateTime getStartTime(int index) {
+    final EventoModel evento = appointments![index] as EventoModel;
+    return evento.dataInicio;
+  }
+
+  @override
+  DateTime getEndTime(int index) {
+    final EventoModel evento = appointments![index] as EventoModel;
+    return evento.dataFim;
+  }
+
+  @override
+  String getSubject(int index) {
+    final EventoModel evento = appointments![index] as EventoModel;
+    return evento.nome;
+  }
+
+  @override
+  Color getColor(int index) {
+    final EventoModel evento = appointments![index] as EventoModel;
+    return evento.cor;
   }
 }
