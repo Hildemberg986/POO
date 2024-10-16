@@ -15,6 +15,13 @@ class _EventosScreenState extends State<EventosScreen> {
   DateTime? _diaSelecionado;
   final Map<DateTime, List<EventoModel>> _eventos = {};
   final Random _random = Random();
+  bool _maisDeUmDia = false;
+
+  String formatTimeOfDay(TimeOfDay time) {
+    final hours = time.hour.toString().padLeft(2, '0');
+    final minutes = time.minute.toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
 
   @override
   void initState() {
@@ -32,13 +39,20 @@ class _EventosScreenState extends State<EventosScreen> {
     });
   }
 
-  void _adicionarEvento(DateTime dataInicio, DateTime dataFim, String nome,
-      String descricao, TimeOfDay? horaInicio, TimeOfDay? horaFim) {
+  void _adicionarEvento(
+      DateTime dataInicio,
+      DateTime dataFim,
+      String nome,
+      String descricao,
+      String local,
+      TimeOfDay? horaInicio,
+      TimeOfDay? horaFim) {
     if (dataInicio.isAfter(dataFim)) return;
 
     final evento = EventoModel(
       nome: nome,
       descricao: descricao,
+      local: local,
       dataInicio: dataInicio,
       dataFim: dataFim,
       cor: Color.fromRGBO(
@@ -56,19 +70,47 @@ class _EventosScreenState extends State<EventosScreen> {
     });
   }
 
-  Future<void> _mostrarModalAdicionarEvento() async {
-    DateTime? dataInicio = _diaSelecionado;
-    DateTime? dataFim = _diaSelecionado;
-    TimeOfDay? horaInicio;
-    TimeOfDay? horaFim;
-    final TextEditingController nomeController = TextEditingController();
-    final TextEditingController descricaoController = TextEditingController();
+  void _editarEvento(
+      EventoModel eventoParaEditar,
+      DateTime dataInicio,
+      DateTime dataFim,
+      String nome,
+      String descricao,
+      String local,
+      TimeOfDay? horaInicio,
+      TimeOfDay? horaFim) {
+    setState(() {
+      for (var dia = dataInicio;
+          !dia.isAfter(dataFim);
+          dia = dia.add(const Duration(days: 1))) {
+        _eventos[dia]?.remove(eventoParaEditar);
+      }
+      _adicionarEvento(
+          dataInicio, dataFim, nome, descricao, local, horaInicio, horaFim);
+    });
+  }
+
+  Future<void> _mostrarModalAdicionarEvento(
+      {EventoModel? eventoParaEditar}) async {
+    DateTime? dataInicio = eventoParaEditar?.dataInicio ?? _diaSelecionado;
+    DateTime? dataFim = eventoParaEditar?.dataFim ?? _diaSelecionado;
+    TimeOfDay? horaInicio = eventoParaEditar?.horaInicio;
+    TimeOfDay? horaFim = eventoParaEditar?.horaFim;
+    final TextEditingController nomeController =
+        TextEditingController(text: eventoParaEditar?.nome);
+    final TextEditingController descricaoController =
+        TextEditingController(text: eventoParaEditar?.descricao);
+    final TextEditingController localController =
+        TextEditingController(text: eventoParaEditar?.local);
+    bool diaTodo = eventoParaEditar?.horaInicio == null &&
+        eventoParaEditar?.horaFim == null;
 
     await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Adicionar Evento'),
+          title: Text(
+              eventoParaEditar == null ? 'Adicionar Evento' : 'Editar Evento'),
           content: SingleChildScrollView(
             child: StatefulBuilder(
               builder: (BuildContext context, StateSetter setState) {
@@ -84,97 +126,147 @@ class _EventosScreenState extends State<EventosScreen> {
                       decoration: const InputDecoration(
                           labelText: 'Descrição do Evento'),
                     ),
+                    TextField(
+                      controller: localController,
+                      decoration:
+                          const InputDecoration(labelText: 'Local do Evento'),
+                    ),
                     const SizedBox(height: 8),
                     ListTile(
                       title: const Text('Data Início'),
-                      subtitle: Text('${dataInicio!.toLocal()}'.split(' ')[0]),
+                      subtitle: Text(DateFormat('dd/MM/yyyy')
+                          .format(dataInicio ?? DateTime.now())),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
                         final dataSelecionada = await showDatePicker(
                           context: context,
-                          initialDate: dataInicio!,
+                          initialDate: dataInicio ?? DateTime.now(),
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2100),
                         );
                         if (dataSelecionada != null) {
                           setState(() {
                             dataInicio = dataSelecionada;
+                            if (!_maisDeUmDia) {
+                              dataFim = dataInicio;
+                            }
                           });
                         }
                       },
                     ),
                     ListTile(
-                      title: const Text('Data Fim'),
-                      subtitle: Text('${dataFim!.toLocal()}'.split(' ')[0]),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () async {
-                        final dataSelecionada = await showDatePicker(
-                          context: context,
-                          initialDate: dataFim!,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                        );
-                        if (dataSelecionada != null) {
+                      title: const Text('Mais de um dia?'),
+                      trailing: Switch(
+                        value: _maisDeUmDia,
+                        onChanged: (value) {
                           setState(() {
-                            dataFim = dataSelecionada;
+                            _maisDeUmDia = value;
+                            if (!value) {
+                              dataFim = dataInicio;
+                            }
                           });
-                        }
-                      },
-                    ),
-                    ListTile(
-                      title: const Text('Hora Início'),
-                      subtitle: Text(
-                        horaInicio != null
-                            ? '${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}'
-                            : 'Não definido',
+                        },
                       ),
-                      trailing: const Icon(Icons.access_time),
-                      onTap: () async {
-                        final horaSelecionada = await showTimePicker(
-                          context: context,
-                          initialTime: horaInicio ?? TimeOfDay.now(),
-                          builder: (BuildContext context, Widget? child) {
-                            return MediaQuery(
-                              data: MediaQuery.of(context)
-                                  .copyWith(alwaysUse24HourFormat: true),
-                              child: child ?? Container(),
-                            );
-                          },
-                        );
-                        if (horaSelecionada != null) {
-                          setState(() {
-                            horaInicio = horaSelecionada;
-                          });
-                        }
-                      },
                     ),
-                    ListTile(
-                      title: const Text('Hora Fim'),
-                      subtitle: Text(
-                        horaFim != null
-                            ? '${horaFim!.hour.toString().padLeft(2, '0')}:${horaFim!.minute.toString().padLeft(2, '0')}'
-                            : 'Não definido',
+                    if (_maisDeUmDia) ...[
+                      ListTile(
+                        title: const Text('Data Fim'),
+                        subtitle: Text(DateFormat('dd/MM/yyyy')
+                            .format(dataFim ?? DateTime.now())),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final dataSelecionada = await showDatePicker(
+                            context: context,
+                            initialDate: dataFim ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+                          if (dataSelecionada != null) {
+                            setState(() {
+                              dataFim = dataSelecionada;
+                            });
+                          }
+                        },
                       ),
-                      trailing: const Icon(Icons.access_time),
-                      onTap: () async {
-                        final horaSelecionada = await showTimePicker(
-                          context: context,
-                          initialTime: horaFim ?? TimeOfDay.now(),
-                          builder: (BuildContext context, Widget? child) {
-                            return MediaQuery(
-                              data: MediaQuery.of(context)
-                                  .copyWith(alwaysUse24HourFormat: true),
-                              child: child ?? Container(),
-                            );
-                          },
-                        );
-                        if (horaSelecionada != null) {
+                    ],
+                    ListTile(
+                      title: const Text('Dia Todo'),
+                      trailing: Switch(
+                        value: diaTodo,
+                        onChanged: (value) {
                           setState(() {
-                            horaFim = horaSelecionada;
+                            diaTodo = value;
+                            if (value) {
+                              // Se "Dia Todo" estiver marcado, define as horas para 00:00 e 23:59
+                              horaInicio = const TimeOfDay(hour: 0, minute: 0);
+                              horaFim = const TimeOfDay(hour: 23, minute: 59);
+                            } else {
+                              // Se desmarcar "Dia Todo", permite que o usuário defina as horas
+                              horaInicio =
+                                  null; // Aqui, você pode deixar o campo de hora em branco
+                              horaFim =
+                                  null; // Aqui, você pode deixar o campo de hora em branco
+                            }
                           });
-                        }
-                      },
-                    )
+                        },
+                      ),
+                    ),
+                    if (!diaTodo) ...[
+                      ListTile(
+                        title: const Text('Hora Início'),
+                        subtitle: Text(
+                          horaInicio != null
+                              ? '${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}'
+                              : 'Não definido',
+                        ),
+                        trailing: const Icon(Icons.access_time),
+                        onTap: () async {
+                          final horaSelecionada = await showTimePicker(
+                            context: context,
+                            initialTime: horaInicio ?? TimeOfDay.now(),
+                            builder: (BuildContext context, Widget? child) {
+                              return MediaQuery(
+                                data: MediaQuery.of(context)
+                                    .copyWith(alwaysUse24HourFormat: true),
+                                child: child ?? Container(),
+                              );
+                            },
+                          );
+                          if (horaSelecionada != null) {
+                            setState(() {
+                              horaInicio = horaSelecionada;
+                            });
+                          }
+                        },
+                      ),
+                      ListTile(
+                        title: const Text('Hora Fim'),
+                        subtitle: Text(
+                          horaFim != null
+                              ? '${horaFim!.hour.toString().padLeft(2, '0')}:${horaFim!.minute.toString().padLeft(2, '0')}'
+                              : 'Não definido',
+                        ),
+                        trailing: const Icon(Icons.access_time),
+                        onTap: () async {
+                          final horaSelecionada = await showTimePicker(
+                            context: context,
+                            initialTime: horaFim ?? TimeOfDay.now(),
+                            builder: (BuildContext context, Widget? child) {
+                              return MediaQuery(
+                                data: MediaQuery.of(context)
+                                    .copyWith(alwaysUse24HourFormat: true),
+                                child: child ?? Container(),
+                              );
+                            },
+                          );
+                          if (horaSelecionada != null) {
+                            setState(() {
+                              horaFim = horaSelecionada;
+                            });
+                          }
+                        },
+                      ),
+                    ],
                   ],
                 );
               },
@@ -190,25 +282,68 @@ class _EventosScreenState extends State<EventosScreen> {
             TextButton(
               child: const Text('Salvar'),
               onPressed: () {
+                // Verificar se horaInicio e horaFim estão definidos
                 if (dataInicio != null && dataFim != null) {
-                  _adicionarEvento(
-                    dataInicio!,
-                    dataFim!,
-                    nomeController.text,
-                    descricaoController.text,
-                    horaInicio,
-                    horaFim,
-                  );
-                  nomeController.clear(); // Limpar o campo após salvar
-                  descricaoController.clear(); // Limpar o campo após salvar
+                  if (!diaTodo && (horaInicio == null || horaFim == null)) {
+                    // Exibir um alerta ou aviso se as horas não estiverem definidas e "Dia Todo" não estiver marcado
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content:
+                            Text('Por favor, defina as horas de início e fim.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (eventoParaEditar != null) {
+                    _editarEvento(
+                        eventoParaEditar,
+                        dataInicio!,
+                        dataFim!,
+                        nomeController.text,
+                        descricaoController.text,
+                        localController.text,
+                        diaTodo
+                            ? const TimeOfDay(hour: 0, minute: 0)
+                            : horaInicio,
+                        diaTodo
+                            ? const TimeOfDay(hour: 23, minute: 59)
+                            : horaFim);
+                  } else {
+                    _adicionarEvento(
+                        dataInicio!,
+                        dataFim!,
+                        nomeController.text,
+                        descricaoController.text,
+                        localController.text,
+                        diaTodo
+                            ? const TimeOfDay(hour: 0, minute: 0)
+                            : horaInicio,
+                        diaTodo
+                            ? const TimeOfDay(hour: 23, minute: 59)
+                            : horaFim);
+                  }
+                  nomeController.clear();
+                  descricaoController.clear();
+                  localController.clear();
+                  Navigator.of(context).pop();
                 }
-                Navigator.of(context).pop();
               },
             ),
           ],
         );
       },
     );
+  }
+
+  void _deletarEvento(EventoModel evento) {
+    setState(() {
+      for (var dia = evento.dataInicio;
+          !dia.isAfter(evento.dataFim);
+          dia = dia.add(const Duration(days: 1))) {
+        _eventos[dia]?.remove(evento);
+      }
+    });
   }
 
   @override
@@ -219,25 +354,21 @@ class _EventosScreenState extends State<EventosScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: _mostrarModalAdicionarEvento,
+            onPressed: () => _mostrarModalAdicionarEvento(),
           ),
         ],
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(
-                16.0), // Ajuste o valor conforme necessário
+            padding: const EdgeInsets.all(16.0),
             child: SfCalendar(
               view: CalendarView.month,
               maxDate: DateTime(2100),
               minDate: DateTime(2023),
               headerStyle: const CalendarHeaderStyle(
                 textAlign: TextAlign.center,
-                textStyle: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                textStyle: TextStyle(fontSize: 20),
               ),
               onTap: (CalendarTapDetails details) {
                 if (details.targetElement == CalendarElement.calendarCell) {
@@ -245,33 +376,41 @@ class _EventosScreenState extends State<EventosScreen> {
                 }
               },
               monthViewSettings: const MonthViewSettings(
-                appointmentDisplayMode: MonthAppointmentDisplayMode.appointment,
-                monthCellStyle: MonthCellStyle(
-                  backgroundColor: Colors.transparent,
-                  textStyle: TextStyle(
-                    color: Colors.black,
-                  ),
-                ),
+                appointmentDisplayMode: MonthAppointmentDisplayMode.indicator,
               ),
-              dataSource: EventoDataSource(
-                  _eventos.values.expand((eventList) => eventList).toList()),
+              // Os eventos serão exibidos no calendário.
+              dataSource:
+                  EventosDataSource(_carregarEventosPorDia(_diaSelecionado!)),
             ),
           ),
           Expanded(
-            child: ListView(
-              children: _carregarEventosPorDia(_diaSelecionado!)
-                  .map(
-                    (evento) => ListTile(
-                      title: Text(evento.nome),
-                      subtitle: Text(
-                        '${evento.descricao}\n'
-                        'Início: ${evento.horaInicio != null ? '${DateFormat('dd/MM/yyyy').format(evento.dataInicio)} ${evento.horaInicio!.hour.toString().padLeft(2, '0')}:${evento.horaInicio!.minute.toString().padLeft(2, '0')}' : 'Dia Todo'} - '
-                        'Fim: ${evento.horaFim != null ? '${DateFormat('dd/MM/yyyy').format(evento.dataFim)} ${evento.horaFim!.hour.toString().padLeft(2, '0')}:${evento.horaFim!.minute.toString().padLeft(2, '0')}' : 'Dia Todo'}',
+            child: ListView.builder(
+              itemCount: _carregarEventosPorDia(_diaSelecionado!).length,
+              itemBuilder: (context, index) {
+                final evento = _carregarEventosPorDia(_diaSelecionado!)[index];
+                return ListTile(
+                  title: Text(evento.nome),
+                  subtitle: Text(
+                    '${evento.local}\n${evento.descricao}\nInício: ${DateFormat('dd/MM/yyyy').format(evento.dataInicio)} às ${evento.horaInicio != null ? formatTimeOfDay(evento.horaInicio!) : 'Não definido'}\nFim: ${DateFormat('dd/MM/yyyy').format(evento.dataFim)} às ${evento.horaFim != null ? formatTimeOfDay(evento.horaFim!) : 'Não definido'}',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _mostrarModalAdicionarEvento(
+                            eventoParaEditar: evento),
                       ),
-                      tileColor: evento.cor.withOpacity(0.3),
-                    ),
-                  )
-                  .toList(),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () {
+                          _deletarEvento(evento);
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -283,6 +422,7 @@ class _EventosScreenState extends State<EventosScreen> {
 class EventoModel {
   final String nome;
   final String descricao;
+  final String local;
   final DateTime dataInicio;
   final DateTime dataFim;
   final Color cor;
@@ -292,6 +432,7 @@ class EventoModel {
   EventoModel({
     required this.nome,
     required this.descricao,
+    required this.local,
     required this.dataInicio,
     required this.dataFim,
     required this.cor,
@@ -300,32 +441,28 @@ class EventoModel {
   });
 }
 
-class EventoDataSource extends CalendarDataSource {
-  EventoDataSource(List<EventoModel> source) {
-    appointments = source;
+class EventosDataSource extends CalendarDataSource {
+  EventosDataSource(List<EventoModel> eventos) {
+    appointments = eventos;
   }
 
   @override
   DateTime getStartTime(int index) {
-    final EventoModel evento = appointments![index] as EventoModel;
-    return evento.dataInicio;
+    return (appointments![index] as EventoModel).dataInicio;
   }
 
   @override
   DateTime getEndTime(int index) {
-    final EventoModel evento = appointments![index] as EventoModel;
-    return evento.dataFim;
+    return (appointments![index] as EventoModel).dataFim;
   }
 
   @override
   String getSubject(int index) {
-    final EventoModel evento = appointments![index] as EventoModel;
-    return evento.nome;
+    return (appointments![index] as EventoModel).nome;
   }
 
   @override
   Color getColor(int index) {
-    final EventoModel evento = appointments![index] as EventoModel;
-    return evento.cor;
+    return (appointments![index] as EventoModel).cor;
   }
 }
