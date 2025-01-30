@@ -1,5 +1,7 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'package:intl/intl.dart'; // Para formatar datas e horários
 
 class EventosScreen extends StatefulWidget {
   const EventosScreen({Key? key}) : super(key: key);
@@ -18,42 +20,73 @@ class _EventosScreenState extends State<EventosScreen> {
     return Scaffold(
       body: Column(
         children: [
-          Expanded(
+          SizedBox(
+            height: 500, // Altura aumentada para 500 pixels
             child: SfCalendar(
               view: CalendarView.month,
               dataSource: MeetingDataSource(meetings),
               monthViewSettings: const MonthViewSettings(
                 appointmentDisplayMode: MonthAppointmentDisplayMode.appointment,
+                showTrailingAndLeadingDates: false,
               ),
               onTap: (CalendarTapDetails details) {
                 if (details.targetElement == CalendarElement.calendarCell) {
                   _showEventsForDay(details.date!);
-                } else if (details.targetElement ==
-                    CalendarElement.appointment) {
-                  _editEvent(details.appointments![0]);
                 }
               },
             ),
           ),
           if (eventsForDay.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Eventos do dia:',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Eventos do dia:',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      ...eventsForDay.map(
+                        (event) => Container(
+                          decoration: BoxDecoration(
+                            color: event.background.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            title: Text(event.eventName),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Descrição: ${event.description}'),
+                                Text('Local: ${event.local}'),
+                                Text(
+                                    'Data de Início: ${DateFormat('dd/MM/yyyy HH:mm').format(event.from)}'),
+                                Text(
+                                    'Data de Fim: ${DateFormat('dd/MM/yyyy HH:mm').format(event.to)}'),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  onPressed: () => _editEvent(event),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete),
+                                  onPressed: () => _deleteEvent(event),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  ...eventsForDay.map(
-                    (event) => ListTile(
-                      title: Text(event.eventName),
-                      subtitle: Text(
-                          '${event.from.hour}:${event.from.minute} - ${event.to.hour}:${event.to.minute}'),
-                      onTap: () => _editEvent(event),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
         ],
@@ -75,6 +108,7 @@ class _EventosScreenState extends State<EventosScreen> {
       setState(() {
         meetings.add(newEvent);
       });
+      _updateEventsForDay();
     }
   }
 
@@ -91,19 +125,34 @@ class _EventosScreenState extends State<EventosScreen> {
           meetings[index] = editedEvent;
         }
       });
+      _updateEventsForDay();
     }
+  }
+
+  void _deleteEvent(Meeting event) {
+    setState(() {
+      meetings.remove(event);
+      eventsForDay.remove(event);
+    });
+    _updateEventsForDay();
   }
 
   void _showEventsForDay(DateTime day) {
     final events = meetings.where((event) {
-      return event.from.year == day.year &&
-          event.from.month == day.month &&
-          event.from.day == day.day;
+      // Verifica se o dia está dentro do intervalo do evento (inclusive)
+      return day.isAfter(event.from.subtract(const Duration(days: 1))) &&
+          (day.isAtSameMomentAs(event.to) || day.isBefore(event.to));
     }).toList();
 
     setState(() {
       eventsForDay = events;
     });
+  }
+
+  void _updateEventsForDay() {
+    // Atualiza os eventos para o dia atual
+    final today = DateTime.now();
+    _showEventsForDay(today);
   }
 }
 
@@ -121,8 +170,11 @@ class _AddEventDialogState extends State<AddEventDialog> {
   final _formKey = GlobalKey<FormState>();
   final _eventNameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  DateTime _startTime = DateTime.now();
-  DateTime _endTime = DateTime.now().add(const Duration(hours: 1));
+  final _localController = TextEditingController();
+  DateTime _startDate = DateTime.now();
+  TimeOfDay _startTime = TimeOfDay.now();
+  DateTime _endDate = DateTime.now().add(const Duration(hours: 1));
+  TimeOfDay _endTime = TimeOfDay.now().replacing(hour: TimeOfDay.now().hour + 1);
 
   @override
   void initState() {
@@ -130,9 +182,57 @@ class _AddEventDialogState extends State<AddEventDialog> {
     if (widget.event != null) {
       _eventNameController.text = widget.event!.eventName;
       _descriptionController.text = widget.event!.description;
-      _startTime = widget.event!.from;
-      _endTime = widget.event!.to;
+      _localController.text = widget.event!.local;
+      _startDate = widget.event!.from;
+      _startTime = TimeOfDay.fromDateTime(widget.event!.from);
+      _endDate = widget.event!.to;
+      _endTime = TimeOfDay.fromDateTime(widget.event!.to);
     }
+  }
+
+  Future<void> _selectDate(BuildContext context, bool isStart) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = date;
+        } else {
+          _endDate = date;
+        }
+      });
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context, bool isStart) async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _startTime : _endTime,
+    );
+    if (time != null) {
+      setState(() {
+        if (isStart) {
+          _startTime = time;
+        } else {
+          _endTime = time;
+        }
+      });
+    }
+  }
+
+  // Função para gerar uma cor aleatória (evitando cores muito escuras)
+  Color _generateRandomColor() {
+    final random = Random();
+    return Color.fromRGBO(
+      random.nextInt(200), // Red (0-200 para evitar cores escuras)
+      random.nextInt(200), // Green (0-200 para evitar cores escuras)
+      random.nextInt(200), // Blue (0-200 para evitar cores escuras)
+      1.0, // Opacidade
+    );
   }
 
   @override
@@ -149,12 +249,8 @@ class _AddEventDialogState extends State<AddEventDialog> {
             TextFormField(
               controller: _eventNameController,
               decoration: const InputDecoration(labelText: 'Nome do Evento'),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor, insira um nome para o evento';
-                }
-                return null;
-              },
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Insira um nome' : null,
             ),
             TextFormField(
               controller: _descriptionController,
@@ -166,96 +262,69 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 return null;
               },
             ),
+            TextFormField(
+              controller: _localController,
+              decoration: const InputDecoration(labelText: 'Local'),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Por favor, insira um local para o evento';
+                }
+                return null;
+              },
+            ),
             ListTile(
-  title: Text('Início: ${_startTime.toLocal().toString().substring(0, 16)}'),
-  trailing: const Icon(Icons.calendar_today),
-  onTap: () async {
-    // Selecionar a data
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _startTime,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (date != null) {
-      // Selecionar a hora
-      final time = await showTimePicker(
-        // ignore: use_build_context_synchronously
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(_startTime),
-      );
-      if (time != null) {
-        setState(() {
-          // Juntar data e hora
-          _startTime = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          );
-        });
-      }
-    }
-  },
-),
-ListTile(
-  title: Text('Fim: ${_endTime.toLocal().toString().substring(0, 16)}'),
-  trailing: const Icon(Icons.calendar_today),
-  onTap: () async {
-    // Selecionar a data
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _endTime,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (date != null) {
-      // Selecionar a hora
-      final time = await showTimePicker(
-        // ignore: use_build_context_synchronously
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(_endTime),
-      );
-      if (time != null) {
-        setState(() {
-          // Juntar data e hora
-          _endTime = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          );
-        });
-      }
-    }
-  },
-),
+              title: Text(
+                  'Data de Início: ${DateFormat('dd/MM/yyyy').format(_startDate)}'),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () => _selectDate(context, true),
+            ),
+            ListTile(
+              title: Text('Hora de Início: ${_startTime.format(context)}'),
+              trailing: const Icon(Icons.access_time),
+              onTap: () => _selectTime(context, true),
+            ),
+            ListTile(
+              title: Text(
+                  'Data de Fim: ${DateFormat('dd/MM/yyyy').format(_endDate)}'),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () => _selectDate(context, false),
+            ),
+            ListTile(
+              title: Text('Hora de Fim: ${_endTime.format(context)}'),
+              trailing: const Icon(Icons.access_time),
+              onTap: () => _selectTime(context, false),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (_formKey.currentState!.validate()) {
+                  Navigator.of(context).pop(Meeting(
+                    _eventNameController.text,
+                    DateTime(
+                      _startDate.year,
+                      _startDate.month,
+                      _startDate.day,
+                      _startTime.hour,
+                      _startTime.minute,
+                    ),
+                    DateTime(
+                      _endDate.year,
+                      _endDate.month,
+                      _endDate.day,
+                      _endTime.hour,
+                      _endTime.minute,
+                    ),
+                    _generateRandomColor(), // Cor aleatória
+                    false,
+                    _descriptionController.text,
+                    _localController.text,
+                  ));
+                }
+              },
+              child: const Text('Salvar'),
+            ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        TextButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.of(context).pop(Meeting(
-                _eventNameController.text,
-                _startTime,
-                _endTime,
-                Colors.blue,
-                false,
-                _descriptionController.text,
-              ));
-            }
-          },
-          child: const Text('Salvar'),
-        ),
-      ],
     );
   }
 }
@@ -292,8 +361,15 @@ class MeetingDataSource extends CalendarDataSource {
 }
 
 class Meeting {
-  Meeting(this.eventName, this.from, this.to, this.background, this.isAllDay,
-      this.description);
+  Meeting(
+    this.eventName,
+    this.from,
+    this.to,
+    this.background,
+    this.isAllDay,
+    this.description,
+    this.local,
+  );
 
   String eventName;
   DateTime from;
@@ -301,4 +377,5 @@ class Meeting {
   Color background;
   bool isAllDay;
   String description;
+  String local;
 }
