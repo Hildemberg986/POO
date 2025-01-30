@@ -1,417 +1,80 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
-import 'dart:math';
 
 class EventosScreen extends StatefulWidget {
-  const EventosScreen({super.key});
+  const EventosScreen({Key? key}) : super(key: key);
 
   @override
   _EventosScreenState createState() => _EventosScreenState();
 }
 
 class _EventosScreenState extends State<EventosScreen> {
-  final DateTime _diaFocado = DateTime.now();
-  DateTime? _diaSelecionado;
-  final Map<DateTime, List<EventoModel>> _eventos = {};
-  final Random _random = Random();
-  bool _maisDeUmDia = false;
-
-  String formatTimeOfDay(TimeOfDay time) {
-    final hours = time.hour.toString().padLeft(2, '0');
-    final minutes = time.minute.toString().padLeft(2, '0');
-    return '$hours:$minutes';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _diaSelecionado = _diaFocado;
-  }
-
-  List<EventoModel> _carregarEventosPorDia(DateTime dia) {
-    return _eventos[dia] ?? [];
-  }
-
-  void _onDiaSelecionado(DateTime diaSelecionado) {
-    setState(() {
-      _diaSelecionado = diaSelecionado;
-    });
-  }
-
-  void _adicionarEvento(
-      DateTime dataInicio,
-      DateTime dataFim,
-      String nome,
-      String descricao,
-      String local,
-      TimeOfDay? horaInicio,
-      TimeOfDay? horaFim) {
-    if (dataInicio.isAfter(dataFim)) return;
-
-    final evento = EventoModel(
-      nome: nome,
-      descricao: descricao,
-      local: local,
-      dataInicio: dataInicio,
-      dataFim: dataFim,
-      cor: Color.fromRGBO(
-          _random.nextInt(256), _random.nextInt(256), _random.nextInt(256), 1),
-      horaInicio: horaInicio,
-      horaFim: horaFim,
-    );
-
-    setState(() {
-      for (var dia = dataInicio;
-          !dia.isAfter(dataFim);
-          dia = dia.add(const Duration(days: 1))) {
-        _eventos[dia] = (_eventos[dia] ?? [])..add(evento);
-      }
-    });
-  }
-
-  void _editarEvento(
-      EventoModel eventoParaEditar,
-      DateTime dataInicio,
-      DateTime dataFim,
-      String nome,
-      String descricao,
-      String local,
-      TimeOfDay? horaInicio,
-      TimeOfDay? horaFim) {
-    setState(() {
-      for (var dia = dataInicio;
-          !dia.isAfter(dataFim);
-          dia = dia.add(const Duration(days: 1))) {
-        _eventos[dia]?.remove(eventoParaEditar);
-      }
-      _adicionarEvento(
-          dataInicio, dataFim, nome, descricao, local, horaInicio, horaFim);
-    });
-  }
-
-  Future<void> _mostrarModalAdicionarEvento(
-      {EventoModel? eventoParaEditar}) async {
-    DateTime? dataInicio = eventoParaEditar?.dataInicio ?? _diaSelecionado;
-    DateTime? dataFim = eventoParaEditar?.dataFim ?? _diaSelecionado;
-    TimeOfDay? horaInicio = eventoParaEditar?.horaInicio;
-    TimeOfDay? horaFim = eventoParaEditar?.horaFim;
-    final TextEditingController nomeController =
-        TextEditingController(text: eventoParaEditar?.nome);
-    final TextEditingController descricaoController =
-        TextEditingController(text: eventoParaEditar?.descricao);
-    final TextEditingController localController =
-        TextEditingController(text: eventoParaEditar?.local);
-    bool diaTodo = eventoParaEditar?.horaInicio == null &&
-        eventoParaEditar?.horaFim == null;
-
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-              eventoParaEditar == null ? 'Adicionar Evento' : 'Editar Evento'),
-          content: SingleChildScrollView(
-            child: StatefulBuilder(
-              builder: (BuildContext context, StateSetter setState) {
-                return Column(
-                  children: [
-                    TextField(
-                      controller: nomeController,
-                      decoration:
-                          const InputDecoration(labelText: 'Nome do Evento'),
-                    ),
-                    TextField(
-                      controller: descricaoController,
-                      decoration: const InputDecoration(
-                          labelText: 'Descrição do Evento'),
-                    ),
-                    TextField(
-                      controller: localController,
-                      decoration:
-                          const InputDecoration(labelText: 'Local do Evento'),
-                    ),
-                    const SizedBox(height: 8),
-                    ListTile(
-                      title: const Text('Data Início'),
-                      subtitle: Text(DateFormat('dd/MM/yyyy')
-                          .format(dataInicio ?? DateTime.now())),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () async {
-                        final dataSelecionada = await showDatePicker(
-                          context: context,
-                          initialDate: dataInicio ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                        );
-                        if (dataSelecionada != null) {
-                          setState(() {
-                            dataInicio = dataSelecionada;
-                            if (!_maisDeUmDia) {
-                              dataFim = dataInicio;
-                            }
-                          });
-                        }
-                      },
-                    ),
-                    ListTile(
-                      title: const Text('Mais de um dia?'),
-                      trailing: Switch(
-                        value: _maisDeUmDia,
-                        onChanged: (value) {
-                          setState(() {
-                            _maisDeUmDia = value;
-                            if (!value) {
-                              dataFim = dataInicio;
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                    if (_maisDeUmDia) ...[
-                      ListTile(
-                        title: const Text('Data Fim'),
-                        subtitle: Text(DateFormat('dd/MM/yyyy')
-                            .format(dataFim ?? DateTime.now())),
-                        trailing: const Icon(Icons.calendar_today),
-                        onTap: () async {
-                          final dataSelecionada = await showDatePicker(
-                            context: context,
-                            initialDate: dataFim ?? DateTime.now(),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2100),
-                          );
-                          if (dataSelecionada != null) {
-                            setState(() {
-                              dataFim = dataSelecionada;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                    ListTile(
-                      title: const Text('Dia Todo'),
-                      trailing: Switch(
-                        value: diaTodo,
-                        onChanged: (value) {
-                          setState(() {
-                            diaTodo = value;
-                            if (value) {
-                              // Se "Dia Todo" estiver marcado, define as horas para 00:00 e 23:59
-                              horaInicio = const TimeOfDay(hour: 0, minute: 0);
-                              horaFim = const TimeOfDay(hour: 23, minute: 59);
-                            } else {
-                              // Se desmarcar "Dia Todo", permite que o usuário defina as horas
-                              horaInicio =
-                                  null; // Aqui, você pode deixar o campo de hora em branco
-                              horaFim =
-                                  null; // Aqui, você pode deixar o campo de hora em branco
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                    if (!diaTodo) ...[
-                      ListTile(
-                        title: const Text('Hora Início'),
-                        subtitle: Text(
-                          horaInicio != null
-                              ? '${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}'
-                              : 'Não definido',
-                        ),
-                        trailing: const Icon(Icons.access_time),
-                        onTap: () async {
-                          final horaSelecionada = await showTimePicker(
-                            context: context,
-                            initialTime: horaInicio ?? TimeOfDay.now(),
-                            builder: (BuildContext context, Widget? child) {
-                              return MediaQuery(
-                                data: MediaQuery.of(context)
-                                    .copyWith(alwaysUse24HourFormat: true),
-                                child: child ?? Container(),
-                              );
-                            },
-                          );
-                          if (horaSelecionada != null) {
-                            setState(() {
-                              horaInicio = horaSelecionada;
-                            });
-                          }
-                        },
-                      ),
-                      ListTile(
-                        title: const Text('Hora Fim'),
-                        subtitle: Text(
-                          horaFim != null
-                              ? '${horaFim!.hour.toString().padLeft(2, '0')}:${horaFim!.minute.toString().padLeft(2, '0')}'
-                              : 'Não definido',
-                        ),
-                        trailing: const Icon(Icons.access_time),
-                        onTap: () async {
-                          final horaSelecionada = await showTimePicker(
-                            context: context,
-                            initialTime: horaFim ?? TimeOfDay.now(),
-                            builder: (BuildContext context, Widget? child) {
-                              return MediaQuery(
-                                data: MediaQuery.of(context)
-                                    .copyWith(alwaysUse24HourFormat: true),
-                                child: child ?? Container(),
-                              );
-                            },
-                          );
-                          if (horaSelecionada != null) {
-                            setState(() {
-                              horaFim = horaSelecionada;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancelar'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text('Salvar'),
-              onPressed: () {
-                // Verificar se horaInicio e horaFim estão definidos
-                if (dataInicio != null && dataFim != null) {
-                  if (!diaTodo && (horaInicio == null || horaFim == null)) {
-                    // Exibir um alerta ou aviso se as horas não estiverem definidas e "Dia Todo" não estiver marcado
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content:
-                            Text('Por favor, defina as horas de início e fim.'),
-                      ),
-                    );
-                    return;
-                  }
-
-                  if (eventoParaEditar != null) {
-                    _editarEvento(
-                        eventoParaEditar,
-                        dataInicio!,
-                        dataFim!,
-                        nomeController.text,
-                        descricaoController.text,
-                        localController.text,
-                        diaTodo
-                            ? const TimeOfDay(hour: 0, minute: 0)
-                            : horaInicio,
-                        diaTodo
-                            ? const TimeOfDay(hour: 23, minute: 59)
-                            : horaFim);
-                  } else {
-                    _adicionarEvento(
-                        dataInicio!,
-                        dataFim!,
-                        nomeController.text,
-                        descricaoController.text,
-                        localController.text,
-                        diaTodo
-                            ? const TimeOfDay(hour: 0, minute: 0)
-                            : horaInicio,
-                        diaTodo
-                            ? const TimeOfDay(hour: 23, minute: 59)
-                            : horaFim);
-                  }
-                  nomeController.clear();
-                  descricaoController.clear();
-                  localController.clear();
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _deletarEvento(EventoModel evento) {
-    setState(() {
-      for (var dia = evento.dataInicio;
-          !dia.isAfter(evento.dataFim);
-          dia = dia.add(const Duration(days: 1))) {
-        _eventos[dia]?.remove(evento);
-      }
-    });
-  }
+  List<Meeting> meetings = [];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Eventos'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _mostrarModalAdicionarEvento(),
-          ),
-        ],
+        title: const Text('Calendário de Eventos'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SfCalendar(
-              view: CalendarView.month,
-              maxDate: DateTime(2100),
-              minDate: DateTime(2023),
-              headerStyle: const CalendarHeaderStyle(
-                textAlign: TextAlign.center,
-                textStyle: TextStyle(fontSize: 20),
-              ),
-              onTap: (CalendarTapDetails details) {
-                if (details.targetElement == CalendarElement.calendarCell) {
-                  _onDiaSelecionado(details.date!);
-                }
-              },
-              monthViewSettings: const MonthViewSettings(
-                appointmentDisplayMode: MonthAppointmentDisplayMode.indicator,
-              ),
-              // Os eventos serão exibidos no calendário.
-              dataSource:
-                  EventosDataSource(_carregarEventosPorDia(_diaSelecionado!)),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _carregarEventosPorDia(_diaSelecionado!).length,
-              itemBuilder: (context, index) {
-                final evento = _carregarEventosPorDia(_diaSelecionado!)[index];
-                return ListTile(
-                  title: Text(evento.nome),
+      body: SfCalendar(
+        view: CalendarView.month,
+        dataSource: MeetingDataSource(meetings),
+        monthViewSettings: const MonthViewSettings(
+          appointmentDisplayMode: MonthAppointmentDisplayMode.appointment,
+        ),
+        onTap: (CalendarTapDetails details) {
+          if (details.targetElement == CalendarElement.calendarCell) {
+            _showEventsForDay(details.date!);
+          }
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _addEvent(),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _addEvent() async {
+    final newEvent = await showDialog<Meeting>(
+      context: context,
+      builder: (context) => const AddEventDialog(),
+    );
+
+    if (newEvent != null) {
+      setState(() {
+        meetings.add(newEvent);
+      });
+    }
+  }
+
+  void _showEventsForDay(DateTime day) {
+    final events = meetings.where((event) {
+      return event.from.isAtSameMomentAs(day) ||
+          (event.from.isBefore(day) && event.to.isAfter(day));
+    }).toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Eventos no dia ${day.day}/${day.month}/${day.year}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: events
+              .map(
+                (event) => ListTile(
+                  title: Text(event.eventName),
                   subtitle: Text(
-                    '${evento.local}\n${evento.descricao}\nInício: ${DateFormat('dd/MM/yyyy').format(evento.dataInicio)} às ${evento.horaInicio != null ? formatTimeOfDay(evento.horaInicio!) : 'Não definido'}\nFim: ${DateFormat('dd/MM/yyyy').format(evento.dataFim)} às ${evento.horaFim != null ? formatTimeOfDay(evento.horaFim!) : 'Não definido'}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _mostrarModalAdicionarEvento(
-                            eventoParaEditar: evento),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () {
-                          _deletarEvento(evento);
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                      '${event.from.hour}:${event.from.minute} - ${event.to.hour}:${event.to.minute}'),
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fechar'),
           ),
         ],
       ),
@@ -419,50 +82,160 @@ class _EventosScreenState extends State<EventosScreen> {
   }
 }
 
-class EventoModel {
-  final String nome;
-  final String descricao;
-  final String local;
-  final DateTime dataInicio;
-  final DateTime dataFim;
-  final Color cor;
-  final TimeOfDay? horaInicio;
-  final TimeOfDay? horaFim;
+class AddEventDialog extends StatefulWidget {
+  const AddEventDialog({Key? key}) : super(key: key);
 
-  EventoModel({
-    required this.nome,
-    required this.descricao,
-    required this.local,
-    required this.dataInicio,
-    required this.dataFim,
-    required this.cor,
-    this.horaInicio,
-    this.horaFim,
-  });
+  @override
+  _AddEventDialogState createState() => _AddEventDialogState();
 }
 
-class EventosDataSource extends CalendarDataSource {
-  EventosDataSource(List<EventoModel> eventos) {
-    appointments = eventos;
+class _AddEventDialogState extends State<AddEventDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _eventNameController = TextEditingController();
+  DateTime _startTime = DateTime.now();
+  DateTime _endTime = DateTime.now().add(const Duration(hours: 1));
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Adicionar Evento'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _eventNameController,
+              decoration: const InputDecoration(labelText: 'Nome do Evento'),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Por favor, insira um nome para o evento';
+                }
+                return null;
+              },
+            ),
+            ListTile(
+              title: Text('Início: ${_startTime.toString()}'),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _startTime,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (date != null) {
+                  final time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(_startTime),
+                  );
+                  if (time != null) {
+                    setState(() {
+                      _startTime = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                        time.hour,
+                        time.minute,
+                      );
+                    });
+                  }
+                }
+              },
+            ),
+            ListTile(
+              title: Text('Fim: ${_endTime.toString()}'),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _endTime,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (date != null) {
+                  final time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(_endTime),
+                  );
+                  if (time != null) {
+                    setState(() {
+                      _endTime = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                        time.hour,
+                        time.minute,
+                      );
+                    });
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.of(context).pop(Meeting(
+                _eventNameController.text,
+                _startTime,
+                _endTime,
+                Colors.blue,
+                false,
+              ));
+            }
+          },
+          child: const Text('Salvar'),
+        ),
+      ],
+    );
+  }
+}
+
+class MeetingDataSource extends CalendarDataSource {
+  MeetingDataSource(List<Meeting> source) {
+    appointments = source;
   }
 
   @override
   DateTime getStartTime(int index) {
-    return (appointments![index] as EventoModel).dataInicio;
+    return appointments![index].from;
   }
 
   @override
   DateTime getEndTime(int index) {
-    return (appointments![index] as EventoModel).dataFim;
+    return appointments![index].to;
   }
 
   @override
   String getSubject(int index) {
-    return (appointments![index] as EventoModel).nome;
+    return appointments![index].eventName;
   }
 
   @override
   Color getColor(int index) {
-    return (appointments![index] as EventoModel).cor;
+    return appointments![index].background;
   }
+
+  @override
+  bool isAllDay(int index) {
+    return appointments![index].isAllDay;
+  }
+}
+
+class Meeting {
+  Meeting(this.eventName, this.from, this.to, this.background, this.isAllDay);
+
+  String eventName;
+  DateTime from;
+  DateTime to;
+  Color background;
+  bool isAllDay;
 }
